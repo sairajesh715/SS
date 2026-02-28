@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo, useCallback } from "react";
+import { useRef, useState, useMemo, useCallback, useEffect } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Stars, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -218,8 +218,8 @@ function Sun({ onClick, hoveredPlanet, setHoveredPlanet, onHover, onUnhover }) {
         <sphereGeometry args={[2.5, 64, 64]} />
       </mesh>
 
-      <pointLight color="#fff5e0" intensity={3.5} distance={220} decay={2} />
-      <pointLight color="#ff8c00" intensity={1.8} distance={90}  decay={2} />
+      <pointLight color="#fff5e0" intensity={5.0} distance={450} decay={1.5} />
+      <pointLight color="#ff8c00" intensity={2.5} distance={120} decay={2} />
     </group>
   );
 }
@@ -239,13 +239,20 @@ function AsteroidBelt() {
   return <points geometry={geo}><pointsMaterial color="#aaa" size={0.035} transparent opacity={0.45} /></points>;
 }
 
+/* ── Default camera position (overview) ─────────────────────────────────── */
+const DEFAULT_CAM_POS    = new THREE.Vector3(0, 30, 60);
+const DEFAULT_CAM_TARGET = new THREE.Vector3(0, 0, 0);
+
 /* ── Scene ──────────────────────────────────────────────────────────────── */
-function Scene({ onPlanetClick, setZooming, onHover, onUnhover }) {
+function Scene({ onPlanetClick, setZooming, onHover, onUnhover, resetTrigger }) {
   const { camera } = useThree();
+  const cameraRef = useRef(camera);
+  cameraRef.current = camera;
   const [hoveredPlanet, setHoveredPlanet] = useState(null);
   const orbitRef = useRef();
   const zoomRef  = useRef(null);
 
+  /* Zoom-in to planet */
   const handlePlanetClick = useCallback((key, worldPos, radius) => {
     const dir  = camera.position.clone().sub(worldPos).normalize();
     const dist = Math.max(radius * 5.5, 4);
@@ -258,11 +265,28 @@ function Scene({ onPlanetClick, setZooming, onHover, onUnhover }) {
       endTarget:   worldPos.clone(),
       progress:    0,
       key,
+      isReset: false,
     };
     if (orbitRef.current) orbitRef.current.enabled = false;
     setZooming(true);
     document.body.style.cursor = "default";
   }, [camera, setZooming]);
+
+  /* Zoom-out back to overview when resetTrigger increments */
+  useEffect(() => {
+    if (!resetTrigger) return;
+    zoomRef.current = {
+      startPos:    cameraRef.current.position.clone(),
+      startTarget: orbitRef.current ? orbitRef.current.target.clone() : new THREE.Vector3(),
+      endPos:      DEFAULT_CAM_POS.clone(),
+      endTarget:   DEFAULT_CAM_TARGET.clone(),
+      progress:    0,
+      key:         null,
+      isReset:     true,
+    };
+    if (orbitRef.current) orbitRef.current.enabled = false;
+    setZooming(true);
+  }, [resetTrigger, setZooming]);
 
   useFrame((state, delta) => {
     const z = zoomRef.current;
@@ -273,23 +297,24 @@ function Scene({ onPlanetClick, setZooming, onHover, onUnhover }) {
     state.camera.lookAt(new THREE.Vector3().lerpVectors(z.startTarget, z.endTarget, t));
 
     if (z.progress >= 1) {
-      const key = z.key, et = z.endTarget.clone();
+      const { key, isReset, endTarget } = z;
       zoomRef.current = null;
       if (orbitRef.current) {
-        orbitRef.current.target.copy(et);
+        orbitRef.current.target.copy(endTarget);
         orbitRef.current.update();
         orbitRef.current.enabled = true;
       }
       setZooming(false);
-      onPlanetClick(key);
+      if (!isReset) onPlanetClick(key);
     }
   });
 
   return (
     <>
       <color attach="background" args={["#000008"]} />
-      <ambientLight intensity={0.06} />
-      <directionalLight position={[-80, 20, -60]} intensity={0.08} color="#aabbff" />
+      <ambientLight intensity={0.45} />
+      <directionalLight position={[-80, 20, -60]} intensity={0.40} color="#aabbff" />
+      <directionalLight position={[60, 40, 60]}   intensity={0.20} color="#ffe8c0" />
       <Stars radius={200} depth={80} count={7000} factor={5} saturation={0.4} fade speed={0.3} />
 
       <Sun
@@ -322,13 +347,19 @@ function Scene({ onPlanetClick, setZooming, onHover, onUnhover }) {
   );
 }
 
-export default function SolarSystem({ onPlanetClick, setZooming, onHover, onUnhover }) {
+export default function SolarSystem({ onPlanetClick, setZooming, onHover, onUnhover, resetTrigger }) {
   return (
     <Canvas camera={{ position: [0, 30, 60], fov: 55 }}
       gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
       dpr={[1, 2]}
     >
-      <Scene onPlanetClick={onPlanetClick} setZooming={setZooming} onHover={onHover} onUnhover={onUnhover} />
+      <Scene
+        onPlanetClick={onPlanetClick}
+        setZooming={setZooming}
+        onHover={onHover}
+        onUnhover={onUnhover}
+        resetTrigger={resetTrigger}
+      />
     </Canvas>
   );
 }

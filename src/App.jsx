@@ -43,11 +43,20 @@ export default function App() {
   const [showGuide, setShowGuide]           = useState(true);
   const [isZooming, setIsZooming]           = useState(false);
   const [tooltip, setTooltip]               = useState(null); // { name, color, x, y }
+  const [isZoomedIn, setIsZoomedIn]         = useState(false);
+  const [resetTrigger, setResetTrigger]     = useState(0);
 
   const handlePlanetClick = (key) => {
     const data = key === "sun" ? SUN_DATA : PLANET_DATA[key];
     setSelectedPlanet(data);
     setShowGuide(false);
+    setIsZoomedIn(true);
+  };
+
+  const handleResetView = () => {
+    setSelectedPlanet(null);
+    setIsZoomedIn(false);
+    setResetTrigger(n => n + 1);
   };
 
   const handleSidebarSelect = (key) => {
@@ -79,6 +88,7 @@ export default function App() {
             setZooming={setIsZooming}
             onHover={handleHover}
             onUnhover={handleUnhover}
+            resetTrigger={resetTrigger}
           />
         </div>
       </Suspense>
@@ -114,6 +124,24 @@ export default function App() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Back to Overview button — visible only when zoomed into a planet */}
+      <AnimatePresence>
+        {isZoomedIn && !isZooming && (
+          <motion.button
+            className="reset-view-btn"
+            onClick={handleResetView}
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -16 }}
+            transition={{ duration: 0.25 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            ← Overview
+          </motion.button>
         )}
       </AnimatePresence>
 
