@@ -1,5 +1,11 @@
 services:
-  - type: static
+  - type: web
     name: solar-system-explorer
+    runtime: node
     buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=4096
