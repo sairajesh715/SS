@@ -2,7 +2,6 @@ import { useState, useCallback, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import SolarSystem from "./components/SolarSystem";
 import PlanetModal from "./components/PlanetModal";
-import Chatbot from "./components/Chatbot";
 import { PLANET_DATA, SUN_DATA } from "./data/planetData";
 import "./App.css";
 
@@ -191,8 +190,6 @@ export default function App() {
         {selectedPlanet && <PlanetModal planet={selectedPlanet} onClose={handleClose} />}
       </AnimatePresence>
 
-      {/* Chatbot */}
-      <Chatbot />
     </div>
   );
 }
