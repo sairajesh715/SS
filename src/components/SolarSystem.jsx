@@ -1,6 +1,6 @@
 import { useRef, useState, useMemo, useCallback } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Stars, OrbitControls, Html } from "@react-three/drei";
+import { Stars, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import { PLANET_DATA } from "../data/planetData";
 import { TEXTURE_MAKERS, makeBumpMap } from "../utils/planetTextures";
@@ -46,7 +46,6 @@ function SaturnRing() {
     return g;
   }, []);
 
-  /* Build a canvas ring texture — inner bright, fades outer */
   const ringTex = useMemo(() => {
     const c = document.createElement("canvas");
     c.width = 512; c.height = 1;
@@ -115,7 +114,7 @@ function Atmosphere({ radius, color, opacity }) {
 }
 
 /* ── Individual Planet ──────────────────────────────────────────────────── */
-function Planet({ planetKey, data, onClick, hoveredPlanet, setHoveredPlanet }) {
+function Planet({ planetKey, data, onClick, hoveredPlanet, setHoveredPlanet, onHover, onUnhover }) {
   const meshRef = useRef();
   const orbitRef = useRef();
   const angleRef = useRef(Math.random() * Math.PI * 2);
@@ -166,19 +165,24 @@ function Planet({ planetKey, data, onClick, hoveredPlanet, setHoveredPlanet }) {
           geometry={geometry}
           material={material}
           onClick={handleClick}
-          onPointerOver={(e) => { e.stopPropagation(); setHoveredPlanet(planetKey); document.body.style.cursor = "pointer"; }}
-          onPointerOut={(e)  => { e.stopPropagation(); setHoveredPlanet(null);      document.body.style.cursor = "default"; }}
-        >
-          {isHovered && (
-            <Html center distanceFactor={12} style={{ pointerEvents: "none" }}>
-              <div className="planet-hover-label"
-                style={{ "--planet-color": data.color, background: `radial-gradient(circle, ${data.color}22, transparent)`, borderColor: `${data.color}88`, color: data.color }}>
-                {data.name}
-                <span className="hover-hint">Click to explore</span>
-              </div>
-            </Html>
-          )}
-        </mesh>
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            setHoveredPlanet(planetKey);
+            document.body.style.cursor = "pointer";
+            onHover(data.name, data.color, e.clientX, e.clientY);
+          }}
+          onPointerMove={(e) => {
+            if (hoveredPlanet === planetKey) {
+              onHover(data.name, data.color, e.clientX, e.clientY);
+            }
+          }}
+          onPointerOut={(e) => {
+            e.stopPropagation();
+            setHoveredPlanet(null);
+            document.body.style.cursor = "default";
+            onUnhover();
+          }}
+        />
 
         {/* Atmosphere glow */}
         {atmo && <Atmosphere radius={data.radius} color={atmo.color} opacity={atmo.opacity} />}
@@ -192,10 +196,9 @@ function Planet({ planetKey, data, onClick, hoveredPlanet, setHoveredPlanet }) {
 }
 
 /* ── Sun ────────────────────────────────────────────────────────────────── */
-function Sun({ onClick, hoveredPlanet, setHoveredPlanet }) {
-  const meshRef  = useRef();
+function Sun({ onClick, hoveredPlanet, setHoveredPlanet, onHover, onUnhover }) {
+  const meshRef   = useRef();
   const coronaRef = useRef();
-  const isHovered = hoveredPlanet === "sun";
 
   const sunTex = useMemo(() => TEXTURE_MAKERS.sun(), []);
   const material = useMemo(() => new THREE.MeshStandardMaterial({
@@ -229,18 +232,25 @@ function Sun({ onClick, hoveredPlanet, setHoveredPlanet }) {
     <group>
       <mesh ref={meshRef} material={material}
         onClick={handleClick}
-        onPointerOver={(e) => { e.stopPropagation(); setHoveredPlanet("sun"); document.body.style.cursor = "pointer"; }}
-        onPointerOut={(e)  => { e.stopPropagation(); setHoveredPlanet(null);  document.body.style.cursor = "default"; }}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          setHoveredPlanet("sun");
+          document.body.style.cursor = "pointer";
+          onHover("The Sun", "#FDB813", e.clientX, e.clientY);
+        }}
+        onPointerMove={(e) => {
+          if (hoveredPlanet === "sun") {
+            onHover("The Sun", "#FDB813", e.clientX, e.clientY);
+          }
+        }}
+        onPointerOut={(e) => {
+          e.stopPropagation();
+          setHoveredPlanet(null);
+          document.body.style.cursor = "default";
+          onUnhover();
+        }}
       >
         <sphereGeometry args={[2.5, 64, 64]} />
-        {isHovered && (
-          <Html center distanceFactor={12} style={{ pointerEvents: "none" }}>
-            <div className="planet-hover-label"
-              style={{ background: "radial-gradient(circle, #FDB81322, transparent)", borderColor: "#FDB81388", color: "#FDB813" }}>
-              The Sun <span className="hover-hint">Click to explore</span>
-            </div>
-          </Html>
-        )}
       </mesh>
 
       {/* Corona glow layers */}
@@ -273,7 +283,7 @@ function AsteroidBelt() {
 }
 
 /* ── Scene ──────────────────────────────────────────────────────────────── */
-function Scene({ onPlanetClick, setZooming }) {
+function Scene({ onPlanetClick, setZooming, onHover, onUnhover }) {
   const { camera } = useThree();
   const [hoveredPlanet, setHoveredPlanet] = useState(null);
   const orbitRef = useRef();
@@ -285,11 +295,11 @@ function Scene({ onPlanetClick, setZooming }) {
     const endPos = worldPos.clone().addScaledVector(dir, dist);
 
     zoomRef.current = {
-      startPos:   camera.position.clone(),
+      startPos:    camera.position.clone(),
       startTarget: orbitRef.current ? orbitRef.current.target.clone() : new THREE.Vector3(),
       endPos,
-      endTarget:  worldPos.clone(),
-      progress:   0,
+      endTarget:   worldPos.clone(),
+      progress:    0,
       key,
     };
     if (orbitRef.current) orbitRef.current.enabled = false;
@@ -322,11 +332,16 @@ function Scene({ onPlanetClick, setZooming }) {
     <>
       <color attach="background" args={["#000008"]} />
       <ambientLight intensity={0.06} />
-      {/* Soft fill light from "opposite" side for dark-side detail */}
       <directionalLight position={[-80, 20, -60]} intensity={0.08} color="#aabbff" />
       <Stars radius={200} depth={80} count={7000} factor={5} saturation={0.4} fade speed={0.3} />
 
-      <Sun onClick={handlePlanetClick} hoveredPlanet={hoveredPlanet} setHoveredPlanet={setHoveredPlanet} />
+      <Sun
+        onClick={handlePlanetClick}
+        hoveredPlanet={hoveredPlanet}
+        setHoveredPlanet={setHoveredPlanet}
+        onHover={onHover}
+        onUnhover={onUnhover}
+      />
       <AsteroidBelt />
 
       {Object.entries(PLANET_DATA).map(([key, data]) => (
@@ -334,26 +349,31 @@ function Scene({ onPlanetClick, setZooming }) {
           onClick={handlePlanetClick}
           hoveredPlanet={hoveredPlanet}
           setHoveredPlanet={setHoveredPlanet}
+          onHover={onHover}
+          onUnhover={onUnhover}
         />
       ))}
 
+      {/* Left-drag = pan, right-drag = rotate, scroll = zoom */}
       <OrbitControls ref={orbitRef}
         enablePan enableZoom enableRotate
+        screenSpacePanning
+        mouseButtons={{ LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }}
         minDistance={4} maxDistance={120}
-        zoomSpeed={0.8} rotateSpeed={0.5}
+        zoomSpeed={0.8} panSpeed={0.8} rotateSpeed={0.5}
         dampingFactor={0.08} enableDamping
       />
     </>
   );
 }
 
-export default function SolarSystem({ onPlanetClick, setZooming }) {
+export default function SolarSystem({ onPlanetClick, setZooming, onHover, onUnhover }) {
   return (
     <Canvas camera={{ position: [0, 30, 60], fov: 55 }}
       gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
       dpr={[1, 2]}
     >
-      <Scene onPlanetClick={onPlanetClick} setZooming={setZooming} />
+      <Scene onPlanetClick={onPlanetClick} setZooming={setZooming} onHover={onHover} onUnhover={onUnhover} />
     </Canvas>
   );
 }
