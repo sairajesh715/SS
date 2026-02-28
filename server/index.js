@@ -6,13 +6,16 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+const isProduction = process.env.NODE_ENV === "production";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-app.use(cors({ origin: ["http://localhost:5173", "http://localhost:4173"] }));
+// Allow all origins (same-origin in production, localhost in dev)
+app.use(cors());
 app.use(express.json());
 
-if (process.env.NODE_ENV === "production") {
+// Serve static frontend files in production
+if (isProduction) {
   app.use(express.static(path.join(__dirname, "../dist")));
 }
 
@@ -72,20 +75,21 @@ app.post("/api/chat", async (req, res) => {
     console.error("Chat error:", error.message);
     const msg =
       error.status === 401
-        ? "API key not configured. Set ANTHROPIC_API_KEY environment variable."
+        ? "API key not configured. Set ANTHROPIC_API_KEY in Render environment variables."
         : "Failed to get response. Please try again.";
     res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
     res.end();
   }
 });
 
-if (process.env.NODE_ENV === "production") {
-  app.get("*", (req, res) => {
+// SPA fallback — use middleware (not app.get("*",...)) for Express 5 compatibility
+if (isProduction) {
+  app.use((req, res) => {
     res.sendFile(path.join(__dirname, "../dist/index.html"));
   });
 }
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`🚀 CosmosAI server running on http://localhost:${PORT}`);
+  console.log(`🚀 CosmosAI server running on port ${PORT}`);
 });
