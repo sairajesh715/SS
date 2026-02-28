@@ -11,6 +11,9 @@ export default defineConfig({
       },
     },
   },
+  preview: {
+    allowedHosts: ['ss-7tlt.onrender.com'],
+  },
   build: {
     chunkSizeWarningLimit: 2000,
     rollupOptions: {
