@@ -21,16 +21,6 @@ const MAT_CONFIG = {
   neptune: { roughness: 0.4,  metalness: 0.02, bump: false },
 };
 
-/* ── Atmosphere layer colors ────────────────────────────────────────────── */
-const ATMO = {
-  venus:   { color: "#e8c06a", opacity: 0.38 },
-  earth:   { color: "#3366cc", opacity: 0.22 },
-  mars:    { color: "#cc5533", opacity: 0.12 },
-  jupiter: { color: "#c89050", opacity: 0.09 },
-  saturn:  { color: "#d4c060", opacity: 0.08 },
-  uranus:  { color: "#7de8e8", opacity: 0.20 },
-  neptune: { color: "#4466ee", opacity: 0.22 },
-};
 
 /* ── Saturn Ring ────────────────────────────────────────────────────────── */
 function SaturnRing() {
@@ -97,22 +87,6 @@ function OrbitLine({ radius }) {
   );
 }
 
-/* ── Atmosphere glow (BackSide inner sphere) ────────────────────────────── */
-function Atmosphere({ radius, color, opacity }) {
-  return (
-    <mesh scale={1.055}>
-      <sphereGeometry args={[radius, 32, 32]} />
-      <meshBasicMaterial
-        color={color}
-        transparent
-        opacity={opacity}
-        side={THREE.BackSide}
-        depthWrite={false}
-      />
-    </mesh>
-  );
-}
-
 /* ── Individual Planet ──────────────────────────────────────────────────── */
 function Planet({ planetKey, data, onClick, hoveredPlanet, setHoveredPlanet, onHover, onUnhover }) {
   const meshRef = useRef();
@@ -154,8 +128,6 @@ function Planet({ planetKey, data, onClick, hoveredPlanet, setHoveredPlanet, onH
     onClick(planetKey, wp, data.radius);
   }, [planetKey, data.radius, onClick]);
 
-  const atmo = ATMO[planetKey];
-
   return (
     <>
       <OrbitLine radius={data.orbitRadius} />
@@ -184,9 +156,6 @@ function Planet({ planetKey, data, onClick, hoveredPlanet, setHoveredPlanet, onH
           }}
         />
 
-        {/* Atmosphere glow */}
-        {atmo && <Atmosphere radius={data.radius} color={atmo.color} opacity={atmo.opacity} />}
-
         {planetKey === "saturn"  && <SaturnRing />}
         {planetKey === "uranus"  && <ThinRing color="#7de8e8" innerR={data.radius * 1.6} outerR={data.radius * 2.0} />}
         {planetKey === "neptune" && <ThinRing color="#5b73e8" innerR={data.radius * 1.5} outerR={data.radius * 1.7} />}
@@ -197,8 +166,7 @@ function Planet({ planetKey, data, onClick, hoveredPlanet, setHoveredPlanet, onH
 
 /* ── Sun ────────────────────────────────────────────────────────────────── */
 function Sun({ onClick, hoveredPlanet, setHoveredPlanet, onHover, onUnhover }) {
-  const meshRef   = useRef();
-  const coronaRef = useRef();
+  const meshRef = useRef();
 
   const sunTex = useMemo(() => TEXTURE_MAKERS.sun(), []);
   const material = useMemo(() => new THREE.MeshStandardMaterial({
@@ -215,9 +183,6 @@ function Sun({ onClick, hoveredPlanet, setHoveredPlanet, onHover, onUnhover }) {
     if (meshRef.current) {
       meshRef.current.rotation.y += 0.0018;
       meshRef.current.material.emissiveIntensity = 0.85 + Math.sin(t * 1.3) * 0.12;
-    }
-    if (coronaRef.current) {
-      coronaRef.current.scale.setScalar(1 + Math.sin(t * 0.7) * 0.025);
     }
   });
 
@@ -252,14 +217,6 @@ function Sun({ onClick, hoveredPlanet, setHoveredPlanet, onHover, onUnhover }) {
       >
         <sphereGeometry args={[2.5, 64, 64]} />
       </mesh>
-
-      {/* Corona glow layers */}
-      <group ref={coronaRef}>
-        <mesh><sphereGeometry args={[2.75, 32, 32]} /><meshBasicMaterial color="#ff9900" transparent opacity={0.12} side={THREE.BackSide} depthWrite={false} /></mesh>
-        <sprite scale={[11, 11, 1]}><spriteMaterial color="#FDB813" transparent opacity={0.10} depthWrite={false} /></sprite>
-        <sprite scale={[18, 18, 1]}><spriteMaterial color="#ff6600" transparent opacity={0.05} depthWrite={false} /></sprite>
-        <sprite scale={[26, 26, 1]}><spriteMaterial color="#ff3300" transparent opacity={0.025} depthWrite={false} /></sprite>
-      </group>
 
       <pointLight color="#fff5e0" intensity={3.5} distance={220} decay={2} />
       <pointLight color="#ff8c00" intensity={1.8} distance={90}  decay={2} />
@@ -354,13 +311,11 @@ function Scene({ onPlanetClick, setZooming, onHover, onUnhover }) {
         />
       ))}
 
-      {/* Left-drag = pan, right-drag = rotate, scroll = zoom */}
+      {/* Left-drag = rotate 360°, scroll = zoom */}
       <OrbitControls ref={orbitRef}
-        enablePan enableZoom enableRotate
-        screenSpacePanning
-        mouseButtons={{ LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }}
+        enablePan={false} enableZoom enableRotate
         minDistance={4} maxDistance={120}
-        zoomSpeed={0.8} panSpeed={0.8} rotateSpeed={0.5}
+        zoomSpeed={0.8} rotateSpeed={0.5}
         dampingFactor={0.08} enableDamping
       />
     </>
